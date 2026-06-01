@@ -152,3 +152,273 @@ We need multistage build to reduce the total size of the final build and make th
 
 On multistage building only the last and final state is selected (here running), and all the overhead which is not required for running is not stored in the last stage. This makes the build and container much faster, efficent and take less space. 
 
+## httpd
+
+In this part, I set up a apache reverse proxy to access springboot application. 
+
+
+### Terminal Comands
+
+1. Get httpd.conf
+
+```
+docker run --rm httpd:2.4 cat /usr/local/apache2/conf/httpd.conf > httpd.conf
+```
+
+2. add this code to the end of the httpd.conf file 
+
+'''
+<VirtualHost *:80>
+    ProxyPreserveHost On
+    ProxyPass / http://${BACKEND_HOST}:8080/
+    ProxyPassReverse / http://${BACKEND_HOST}:8080/
+</VirtualHost>
+'''
+
+3. Build and run docker 
+
+```
+docker build -t apache-reverse-proxy .   
+```
+
+```
+docker run --rm -p 80:80 \                                    
+  -e BACKEND_HOST=host.docker.internal \
+  apache-reverse-proxy
+  ```
+
+  ### Questions
+
+  1. **Q 1.5 1-5 Why do we need a reverse proxy?**
+
+    Reverse proxy is useful as it provides only one entrance to the application and all other ports that might have secure information are hidden. Backend and frontend can be securly seperated
+
+## Docker Compose 
+
+**1-6 Why is docker-compose so important?**
+
+Docker Compose is important because it lets us manage several containers together using one configuration file. Instead of running long docker run commands manually, we can describe the services, ports, volumes, networks, and environment variables in a docker-compose.yml file.
+
+It is especially useful for projects with multiple parts, such as a backend, frontend, and database. With one command, we can start the whole application, stop it, rebuild it, and keep the configuration easy to read and share.
+
+**1-7 Docker Compose most important commands**
+
+```
+docker compose up starts the services defined in the compose file.
+
+docker compose up -d starts the services in the background.
+
+docker compose down stops and removes the containers, networks, and default resources created by Compose.
+
+docker compose build builds or rebuilds the images.
+
+docker compose ps shows the running services.
+
+docker compose logs shows the logs of the services.
+
+docker compose logs -f follows the logs in real time.
+
+docker compose restart restarts the services.
+
+docker compose exec <service> <command> runs a command inside a running service container.
+
+```
+
+**1-8 docker-compose file**
+
+```
+services:
+  database:
+    build: ./Database
+    container_name: postgres        
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U usr -d db"]
+      interval: 5s                 
+      retries: 10                  
+
+  backend:
+    build: ./Backend/Springboot
+    depends_on:
+      database:
+        condition: service_healthy  
+
+  httpd:
+    build: ./httpd
+    ports:
+      - "80:80"                     
+    environment:
+      BACKEND_HOST: backend         
+
+```
+
+## Publish
+
+**1-9 Document your publication commands and published images in dockerhub.**
+
+1. Finding Images 
+
+```
+docker images  
+```
+
+2. Tagging them 
+
+```
+docker tag tp-1-database:latest jatinkhiyani/my-database:1.0
+docker tag tp-1-backend:latest jatinkhiyani/my-backend:1.0
+docker tag tp-1-httpd:latest jatinkhiyani/my-httpd:1.0
+```
+3. Pushing them 
+
+```
+docker push jatinkhiyani/my-database:1.0                    
+docker push jatinkhiyani/my-backend:1.0                   
+docker push jatinkhiyani/my-httpd:1.0                 
+```
+
+Published images 
+
+```
+jatinkhiyani/my-database:1.0
+
+jatinkhiyani/my-backend:1.0
+
+jatinkhiyani/my-httpd:1.0
+```
+
+**1.10 Why do we put our images online**
+
+We put Docker images into an online repository such as Docker Hub so they can be shared and reused easily.
+
+Instead of rebuilding the image on every machine, another developer or server can directly pull the same image from the repository. This makes deployment easier and ensures everyone uses the same version of the application.
+
+It is also useful for teamwork, continuous integration, and production deployment because images are stored with version tags like 1.0, making them easier to track, update, and roll back if needed.
+
+# ALL QUESTIONS
+
+1. **1-1 For which reason is it better to run the container with a flag -e to give the environment variables rather than put them directly in the Dockerfile?**
+
+Passwords and private keys are secrets and should no be available to the public. If they are mentioned in the image defination, thoes passwords and private keys will be avaialble to the public. 
+
+When used wihth -e these varibles are only passed once in the admins terminal. They are not inculded in the image defination and not available to the public 
+
+2. **1-2 Why do we need a volume to be attached to our postgres container?**
+
+in a PostSQL container storage is not temporary. When the container is deleted, changed or update the data might be lost. This data is valuble to all parities envolved. 
+
+A docker volume is permanent storage stored locally or on a server running the container. Volume is not effected by container shut downs, updated or duplication. 
+
+3. **1-3 Document your database container essentials: commands and Dockerfile.**
+
+For the database this readme contains all comands and information about the container
+
+4. **1.4 Why do we need a multistage build? And explain each step of this dockerfile.**
+
+We need multistage build to reduce the total size of the final build and make the container more efficient. There are 2 stages for the build. 
+
+1. Compiling and building the code (requires heavy and full programs like JDK, Source code and Mavern )
+2. Running the actual programs ( much faster and requires almost no overheadx)
+
+On multistage building only the last and final state is selected (here running), and all the overhead which is not required for running is not stored in the last stage. This makes the build and container much faster, efficent and take less space. 
+
+
+5. **Q 1.5 1-5 Why do we need a reverse proxy?**
+
+  Reverse proxy is useful as it provides only one entrance to the application and all other ports that might have secure information are hidden. Backend and frontend can be securly seperated
+
+6. **1-6 Why is docker-compose so important?**
+
+Docker Compose is important because it lets us manage several containers together using one configuration file. Instead of running long docker run commands manually, we can describe the services, ports, volumes, networks, and environment variables in a docker-compose.yml file.
+
+It is especially useful for projects with multiple parts, such as a backend, frontend, and database. With one command, we can start the whole application, stop it, rebuild it, and keep the configuration easy to read and share.
+
+7. **1-7 Docker Compose most important commands**
+
+```
+docker compose up starts the services defined in the compose file.
+
+docker compose up -d starts the services in the background.
+
+docker compose down stops and removes the containers, networks, and default resources created by Compose.
+
+docker compose build builds or rebuilds the images.
+
+docker compose ps shows the running services.
+
+docker compose logs shows the logs of the services.
+
+docker compose logs -f follows the logs in real time.
+
+docker compose restart restarts the services.
+
+docker compose exec <service> <command> runs a command inside a running service container.
+
+```
+
+8. **1-8 docker-compose file**
+
+```
+services:
+  database:
+    build: ./Database
+    container_name: postgres        
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U usr -d db"]
+      interval: 5s                 
+      retries: 10                  
+
+  backend:
+    build: ./Backend/Springboot
+    depends_on:
+      database:
+        condition: service_healthy  
+
+  httpd:
+    build: ./httpd
+    ports:
+      - "80:80"                     
+    environment:
+      BACKEND_HOST: backend         
+      
+```
+
+9. **1-9 Document your publication commands and published images in dockerhub.**
+
+1. Finding Images 
+
+```
+docker images  
+```
+
+2. Tagging them 
+
+```
+docker tag tp-1-database:latest jatinkhiyani/my-database:1.0
+docker tag tp-1-backend:latest jatinkhiyani/my-backend:1.0
+docker tag tp-1-httpd:latest jatinkhiyani/my-httpd:1.0
+```
+3. Pushing them 
+
+```
+docker push jatinkhiyani/my-database:1.0                    
+docker push jatinkhiyani/my-backend:1.0                   
+docker push jatinkhiyani/my-httpd:1.0                 
+```
+
+Published images 
+
+```
+jatinkhiyani/my-database:1.0
+
+jatinkhiyani/my-backend:1.0
+
+jatinkhiyani/my-httpd:1.0
+```
+
+10. **1.10 Why do we put our images online**
+
+We put Docker images into an online repository such as Docker Hub so they can be shared and reused easily.
+
+Instead of rebuilding the image on every machine, another developer or server can directly pull the same image from the repository. This makes deployment easier and ensures everyone uses the same version of the application.
+
+It is also useful for teamwork, continuous integration, and production deployment because images are stored with version tags like 1.0, making them easier to track, update, and roll back if needed.
