@@ -1,0 +1,21 @@
+services:
+  database:
+    build: ./Database
+    container_name: postgres        
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U usr -d db"]
+      interval: 5s                 
+      retries: 10                  
+
+  backend:
+    build: ./Backend/Springboot
+    depends_on:
+      database:
+        condition: service_healthy  
+
+  httpd:
+    build: ./httpd
+    ports:
+      - "80:80"                     
+    environment:
+      BACKEND_HOST: backend         
