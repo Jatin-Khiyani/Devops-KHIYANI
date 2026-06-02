@@ -1,21 +1,30 @@
+
+
 services:
+
   database:
-    build: ./Database
-    container_name: postgres        
+    build: ./database
+    container_name: postgres
+    env_file: .env                        
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U usr -d db"]
-      interval: 5s                 
-      retries: 10                  
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      retries: 10
 
   backend:
     build: ./Backend/Springboot
     depends_on:
       database:
-        condition: service_healthy  
+        condition: service_healthy
+    environment:
+      DB_HOST: ${DB_HOST}                  
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
 
   httpd:
     build: ./httpd
     ports:
-      - "80:80"                     
+      - "80:80"
     environment:
-      BACKEND_HOST: backend         
+      BACKEND_HOST: ${BACKEND_HOST}         
