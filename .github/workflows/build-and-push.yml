@@ -1,0 +1,43 @@
+name: Build and Push Docker Images
+
+on:
+  workflow_run:
+    workflows: ["CI devops 2025"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  build-and-push-docker-image:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-24.04
+    environment: Docker-env
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build and push database image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./TP-1/database
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-database:latest
+          push: true
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./TP-1/Backend/Springboot
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest
+          push: true
+
+      - name: Build and push httpd image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./TP-1/httpd
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
+          push: true
