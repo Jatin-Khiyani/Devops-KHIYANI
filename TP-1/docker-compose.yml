@@ -4,6 +4,8 @@ services:
 
   database:
     build: ./database
+    networks:
+      - my_network 
     container_name: postgres
     env_file: .env                        
     healthcheck:
@@ -13,6 +15,8 @@ services:
 
   backend:
     build: ./Backend/Springboot
+    networks:
+      - my_network 
     depends_on:
       database:
         condition: service_healthy
@@ -24,7 +28,11 @@ services:
 
   httpd:
     build: ./httpd
+    networks:
+      - my_network 
     ports:
       - "80:80"
     environment:
       BACKEND_HOST: ${BACKEND_HOST}         
+
+      
