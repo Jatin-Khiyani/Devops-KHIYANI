@@ -2,7 +2,7 @@
 - name: Launch backend app container
   community.docker.docker_container:
     name: backend
-    image: "{{ dockerhub_username }}/tp-devops-simple-api:latest"
+    image: "{{ DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest"
     state: started
     restart_policy: unless-stopped
     networks:

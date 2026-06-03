@@ -41,10 +41,11 @@ jobs:
           context: ./TP-1/httpd
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
           push: true
-
-  deploy:
-    needs: build-and-push-docker-image
+  
+  
+  deploy-application:
     runs-on: ubuntu-24.04
+    needs: build-and-push-docker-image
     environment: Docker-env
 
     steps:
@@ -53,18 +54,24 @@ jobs:
 
       - name: Install Ansible
         run: |
-          pip install ansible
+          sudo apt-get update
+          sudo apt-get install -y ansible
           ansible-galaxy collection install community.docker
 
-      - name: Setup SSH key
+      - name: Deploy using Ansible Playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H jatin.khiyani.takima.school >> ~/.ssh/known_hosts
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
 
-      - name: Deploy with Ansible
-        run: |
           ansible-playbook -i my-project/ansible/inventories/setup.yml \
             my-project/ansible/playbook.yml \
-            --private-key ~/.ssh/id_rsa
+            --private-key=private_key.pem \
+            -u admin \
+            -e "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} \
+                POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
+                POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
+                POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
+                DB_HOST=${{ secrets.DB_HOST }} \
+                BACKEND_HOST=${{ secrets.BACKEND_HOST }}"          

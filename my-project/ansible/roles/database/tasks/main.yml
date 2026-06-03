@@ -2,7 +2,7 @@
 - name: Launch database container
   community.docker.docker_container:
     name: database
-    image: "{{ dockerhub_username }}/tp-devops-database:latest"
+    image: "{{ DOCKERHUB_USERNAME }}/tp-devops-database:latest"
     state: started
     restart_policy: unless-stopped
     networks:
