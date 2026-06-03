@@ -5,6 +5,7 @@
     image: "{{ DOCKERHUB_USERNAME }}/tp-devops-database:latest"
     state: started
     restart_policy: unless-stopped
+    pull: true 
     networks:
       - name: my-network
     env:

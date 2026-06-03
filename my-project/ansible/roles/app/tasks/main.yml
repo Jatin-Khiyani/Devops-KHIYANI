@@ -3,6 +3,7 @@
   community.docker.docker_container:
     name: backend
     image: "{{ DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest"
+    pull: true 
     state: started
     restart_policy: unless-stopped
     networks:

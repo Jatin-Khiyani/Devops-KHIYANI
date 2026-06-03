@@ -5,6 +5,7 @@
     image: "{{ DOCKERHUB_USERNAME }}/tp-devops-httpd:latest"
     state: started
     restart_policy: unless-stopped
+    pull: true 
     networks:
       - name: my-network
     ports:
