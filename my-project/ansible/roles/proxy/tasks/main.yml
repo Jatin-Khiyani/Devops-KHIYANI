@@ -12,3 +12,4 @@
       - "80:80"
     env:
       BACKEND_HOST: "{{ BACKEND_HOST }}"
+      FRONTEND_HOST: "{{ FRONTEND_HOST }}"

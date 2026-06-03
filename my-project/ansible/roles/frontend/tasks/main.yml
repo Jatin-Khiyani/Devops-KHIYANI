@@ -1,0 +1,13 @@
+---
+- name: Launch frontend container
+  community.docker.docker_container:
+    name: frontend
+    image: "{{ DOCKERHUB_USERNAME }}/frontend:latest"
+    state: started
+    restart_policy: unless-stopped
+    pull: true
+    recreate: true
+    networks:
+      - name: my-network
+    exposed_ports:
+      - "80"

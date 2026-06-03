@@ -41,37 +41,13 @@ jobs:
           context: ./TP-1/httpd
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
           push: true
+
+      - name: Build image and push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./devops-front-main # Mets le nom exact de ton dossier front
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/frontend:latest
   
   
-  deploy-application:
-    runs-on: ubuntu-24.04
-    needs: build-and-push-docker-image
-    environment: Docker-env
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Ansible
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible
-          ansible-galaxy collection install community.docker
-
-      - name: Deploy using Ansible Playbook
-        env:
-          ANSIBLE_HOST_KEY_CHECKING: "False"
-        run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > private_key.pem
-          chmod 600 private_key.pem
-
-          ansible-playbook -i my-project/ansible/inventories/setup.yml \
-            my-project/ansible/playbook.yml \
-            --private-key=private_key.pem \
-            -u admin \
-            -e "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }} \
-                POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
-                POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
-                POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
-                DB_HOST=${{ secrets.DB_HOST }} \
-                BACKEND_HOST=${{ secrets.BACKEND_HOST }}"          
+  

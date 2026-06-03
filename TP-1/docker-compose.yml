@@ -4,8 +4,6 @@ services:
 
   database:
     build: ./database
-    networks:
-      - my_network 
     container_name: postgres
     env_file: .env                        
     healthcheck:
@@ -15,8 +13,6 @@ services:
 
   backend:
     build: ./Backend/Springboot
-    networks:
-      - my_network 
     depends_on:
       database:
         condition: service_healthy
@@ -26,13 +22,20 @@ services:
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
 
+
+  frontend:
+    build: ./frontend
+    depends_on:
+     - backend
+
   httpd:
     build: ./httpd
-    networks:
-      - my_network 
     ports:
       - "80:80"
     environment:
-      BACKEND_HOST: ${BACKEND_HOST}         
+      FRONTEND_HOST: frontend
+    depends_on:
+      - frontend
+      - backend       
 
       
