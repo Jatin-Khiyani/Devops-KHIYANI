@@ -422,3 +422,108 @@ We put Docker images into an online repository such as Docker Hub so they can be
 Instead of rebuilding the image on every machine, another developer or server can directly pull the same image from the repository. This makes deployment easier and ensures everyone uses the same version of the application.
 
 It is also useful for teamwork, continuous integration, and production deployment because images are stored with version tags like 1.0, making them easier to track, update, and roll back if needed.
+
+
+# Lab 3
+
+1. **3-1 Document your inventory and base commands**
+
+First I make a file at `my-project/ansible/inventories/setup.yml` and open it 
+
+Terminal Comand
+
+```
+mkdir -p my-project/ansible/inventories
+cd my-project/ansible
+nano inventories/setup.yml
+```
+
+`setup.yml` file
+
+```
+all:
+  vars:
+    ansible_user: admin
+    ansible_ssh_private_key_file: /Users/harshakhiyani/My_Stuff/Study/Newkey/id_rsa
+  children:
+    prod:
+      hosts:
+        jatin.khiyani.takima.school:
+```
+
+Then excute the comands mentioned in the tutorial 
+
+```
+ansible all -i inventories/setup.yml -m ping
+ansible all -i inventories/setup.yml -m setup -a "filter=ansible_distribution*"
+ansible all -i inventories/setup.yml -m apt -a "name=apache2 state=absent" --become
+
+```
+
+1. **3-2 Document your playbook**
+
+My `playbook` file contents
+
+```
+- hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - python3
+          - python3-pip
+          - python3-venv
+        state: present
+        update_cache: yes
+
+    - name: Create Docker keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Add Docker GPG key
+      get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Add Docker APT repository
+      apt_repository:
+        repo: "deb [arch={{ ansible_architecture | replace('x86_64', 'amd64') }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_facts['distribution_release'] }} stable"
+        state: present
+        filename: docker
+        update_cache: yes
+
+    - name: Install Docker packages
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Create virtual environment for Docker SDK
+      command: python3 -m venv /opt/docker_venv
+      args:
+        creates: /opt/docker_venv
+
+    - name: Install Docker SDK for Python in virtual environment
+      command: /opt/docker_venv/bin/pip install docker
+
+    - name: Make sure Docker is running
+      service:
+        name: docker
+        state: started
+        enabled: true
+```

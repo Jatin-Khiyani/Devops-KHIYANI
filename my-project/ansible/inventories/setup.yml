@@ -1,0 +1,8 @@
+all:
+  vars:
+    ansible_user: admin
+    ansible_ssh_private_key_file: /Users/harshakhiyani/My_Stuff/Study/Newkey/id_rsa
+  children:
+    prod:
+      hosts:
+        jatin.khiyani.takima.school:
