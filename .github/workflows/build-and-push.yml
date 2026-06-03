@@ -45,9 +45,6 @@ jobs:
       - name: Build image and push frontend
         uses: docker/build-push-action@v6
         with:
-          context: ./devops-front-main # Mets le nom exact de ton dossier front
+          context: ./TP-1/frontend
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/frontend:latest
-  
-  
-  
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest
