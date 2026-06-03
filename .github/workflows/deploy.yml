@@ -1,0 +1,36 @@
+name: Deploy Application
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-application:
+    runs-on: ubuntu-24.04
+    environment: Docker-env
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+          ansible-galaxy collection install community.docker
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H jatin.khiyani.takima.school >> ~/.ssh/known_hosts
+
+      - name: Deploy using Ansible Playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          ansible-playbook -i my-project/ansible/inventories/setup.yml \
+            my-project/ansible/playbook.yml \
+            --private-key ~/.ssh/id_rsa \
+            -u admin \
+            --extra-vars "dockerhub_username=${{ secrets.DOCKERHUB_USERNAME }} postgres_db=${{ secrets.POSTGRES_DB }} postgres_user=${{ secrets.POSTGRES_USER }} postgres_password=${{ secrets.POSTGRES_PASSWORD }} db_host=${{ secrets.DB_HOST }} backend_host=${{ secrets.BACKEND_HOST }}"
