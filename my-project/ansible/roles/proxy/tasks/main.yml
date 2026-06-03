@@ -10,4 +10,4 @@
     ports:
       - "80:80"
     env:
-      BACKEND_HOST: "{{ backend_host }}"
+      BACKEND_HOST: "{{ BACKEND_HOST }}"

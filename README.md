@@ -527,3 +527,38 @@ My `playbook` file contents
         state: started
         enabled: true
 ```
+
+3. **3-3 Document your docker_container tasks configuration.**
+
+Here I have made these tasks in the file `playbook.yml`
+
+```
+- hosts: all
+  gather_facts: true
+  become: true
+
+  roles:
+    - docker
+    - network
+    - database
+    - app
+    - proxy
+   ```
+   These files are present in 
+
+```
+   my-project/ansible/roles/
+├── docker/          
+├── network/
+│   └── tasks/
+│       └── main.yml  
+├── database/
+│   └── tasks/
+│       └── main.yml  
+├── app/
+│   └── tasks/
+│       └── main.yml  
+└── proxy/
+    └── tasks/
+        └── main.yml  
+```

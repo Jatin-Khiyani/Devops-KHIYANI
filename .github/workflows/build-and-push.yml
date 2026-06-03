@@ -41,3 +41,30 @@ jobs:
           context: ./TP-1/httpd
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/tp-devops-httpd:latest
           push: true
+
+  deploy:
+    needs: build-and-push-docker-image
+    runs-on: ubuntu-24.04
+    environment: Docker-env
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: |
+          pip install ansible
+          ansible-galaxy collection install community.docker
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H jatin.khiyani.takima.school >> ~/.ssh/known_hosts
+
+      - name: Deploy with Ansible
+        run: |
+          ansible-playbook -i my-project/ansible/inventories/setup.yml \
+            my-project/ansible/playbook.yml \
+            --private-key ~/.ssh/id_rsa
