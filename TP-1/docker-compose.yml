@@ -9,7 +9,18 @@ services:
       interval: 5s
       retries: 10
 
-  backend:
+  backend-blue:
+    build: ./Backend/Springboot
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+
+  backend-green:
     build: ./Backend/Springboot
     depends_on:
       database:
@@ -23,15 +34,16 @@ services:
   frontend:
     build: ./frontend
     depends_on:
-      - backend
+      - backend-blue
+      - backend-green
 
   httpd:
     build: ./httpd
     ports:
       - "80:80"
     environment:
-      BACKEND_HOST: backend
       FRONTEND_HOST: frontend
     depends_on:
       - frontend
-      - backend
+      - backend-blue
+      - backend-green
