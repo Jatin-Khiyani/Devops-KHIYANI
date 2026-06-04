@@ -1,130 +1,249 @@
-# Lab 1
+# Devops-KHIYANI
+
+This repository contains my work for the Devops labs. The work is done in chronological order from Docker basics, Docker compose, GitHub Actions, Ansible deployment and the extra part with load balancing and front-end.
+
+The folder structure is kept as it was during the labs. Some folders are confusing but I did not change them because the repository was already built like this.
+
+## Repository structure
+
+```
+.
+├── TD-1/                         # First Docker discovery with Flask cat app
+├── TP-1/
+│   ├── database/                 # Postgres image and SQL init scripts
+│   ├── Backend/
+│   │   ├── basic_java_build/      # First Java container
+│   │   └── Springboot/            # Simple API backend
+│   ├── httpd/                    # Apache reverse proxy and load balancing
+│   ├── frontend/                 # Vue frontend served with Nginx
+│   └── docker-compose.yml        # Local orchestration
+├── .github/workflows/            # CI, Docker build and deployment workflows
+└── my-project/ansible/           # Ansible inventory, playbook and roles
+```
+
+## Chronology of the work
+
+1. I started with Docker discovery in `TD-1`. I created a Flask application and dockerized it with Alpine, Python, pip and a virtual environment.
+2. Then I worked on the 3-tier Docker application in `TP-1`: database, backend API, httpd reverse proxy, docker-compose and image publication.
+3. After that I added GitHub Actions in `.github/workflows` to test the backend, run SonarCloud, build Docker images and push them to DockerHub.
+4. Then I added Ansible in `my-project/ansible` to install Docker on the server and deploy the containers from DockerHub.
+5. At the end I added the front-end and the extra load balancing part with two backend containers: `backend-blue` and `backend-green`.
+
+## TD part 01 - Docker discovery
+
+For the first Docker discovery I created the folder `TD-1`. The application is a small Flask app that displays a random cat gif. It contains:
+
+```
+TD-1/
+├── Dockerfile
+├── app.py
+├── requirements.txt
+└── templates/index.html
+```
+
+The `Dockerfile` uses `alpine:3.21.0`, installs Python, pip and the needed build dependencies, creates a virtual environment, installs Flask and then starts `app.py`.
+
+Important commands used in this part:
+
+```
+docker build -t myfirstapp .
+docker run -p 8888:5000 myfirstapp
+```
+
+The app is then available on:
+
+```
+http://localhost:8888
+```
+
+I also used basic Docker commands during the discovery part:
+
+```
+docker run hello-world
+docker pull alpine
+docker images
+docker run alpine ls -l
+docker run alpine echo "hello from alpine"
+docker run -it alpine /bin/sh
+docker ps
+docker ps -a
+```
+
+This part was mainly to understand the difference between images and containers and how a container starts from an image.
+
+## TD part 02 - GitHub discovery
+
+For GitHub I used the repository with git commands and pushed my work regularly. I used the repository:
+
+```
+https://github.com/Jatin-Khiyani/Devops-KHIYANI.git
+```
+
+The important commands used were:
+
+```
+git clone <repository-url>
+git status
+git add .
+git commit -m "message"
+git push origin main
+git log
+```
+
+I also used branches `main` and `develop` during the GitHub Actions part.
+
+## TD part 03 - Ansible discovery
+
+For Ansible I first tested the remote connection to the server manually with SSH, then used Ansible ping and ad-hoc commands.
+
+The server used in the inventory is:
+
+```
+jatin.khiyani.takima.school
+```
+
+Basic Ansible commands:
+
+```
+ansible --version
+ssh -i <path_to_private_key> admin@jatin.khiyani.takima.school
+ansible all -i inventories/setup.yml -m ping
+ansible all -i inventories/setup.yml -m setup -a "filter=ansible_distribution*"
+```
+
+The `admin@` part is needed because the remote Debian server uses `admin` as the user. Ansible also uses SSH internally to connect to the server, so the SSH test was useful before writing the playbook.
+
+# Lab 1 - Docker TP
 
 ## Database
 
-In this part I create a database following the instructions given in the module. 
+In this part I created a Postgres database image in `TP-1/database`.
 
-`Dockerfile` makes the Postgres database and assigns user name and password. It also indicates the location of `01_CreateSchema.sql` and `02_InsertData.sql` files to create tables and enter data. These are automatically execute by Postgres. 
-
-### Terminal Comandas
-
-1. To Build the Image
+Files used:
 
 ```
-docker build -t postgres . 
+TP-1/database/
+├── Dockerfile
+├── 01_CreateScheme.sql
+└── 02_InsertData.sql
 ```
 
-2. To create a new network that will be used throughout the lab 
+The Dockerfile is:
 
 ```
+FROM postgres:17.2-alpine
+
+COPY 01_CreateScheme.sql /docker-entrypoint-initdb.d/
+COPY 02_InsertData.sql /docker-entrypoint-initdb.d/
+```
+
+Postgres executes the SQL files automatically because they are copied into `/docker-entrypoint-initdb.d/`.
+
+Terminal commands:
+
+```
+docker build -t postgres .
 docker network create my-network
+docker run -d --name postgres --network my-network -p 5432:5432 -e POSTGRES_PASSWORD=pwd -e POSTGRES_USER=usr -e POSTGRES_DB=db postgres
 ```
 
-3. To run the container 
+Adminer command:
 
 ```
-docker run -d --name postgres --network my-network -p 5432:5432 -e POSTGRES_PASSWORD=pwd -e POSTGRES_USER=usr -e POSTGRES_DB=db  postgres  
+docker run \
+  -p "8090:8080" \
+  --net=my-network \
+  --name=adminer \
+  -d \
+  adminer
 ```
 
-4. To run admirer
+### 1-1 For which reason is it better to run the container with a flag -e to give the environment variables rather than put them directly in the Dockerfile?
+
+It is better to use `-e` because passwords and private configuration should not be written directly inside the Dockerfile.
+
+If the password is inside the Dockerfile it becomes part of the image definition and can be visible when the image is shared. With `-e`, the value is provided when running the container. It is still simple for local work but it avoids putting secrets directly into the image.
+
+### 1-2 Why do we need a volume to be attached to our postgres container?
+
+A database container must keep data even if the container is removed, rebuilt or updated. If no volume is used, the data is stored inside the container filesystem and can disappear when the container is destroyed.
+
+A Docker volume stores the database files outside of the container lifecycle. This is why the database can keep the same data after restarting or recreating the container.
+
+### 1-3 Document your database container essentials: commands and Dockerfile.
+
+Database essentials:
 
 ```
- docker run \                                                                                                                
-    -p "8090:8080" \
-    --net=my-network \
-    --name=adminer \
-    -d \
-    adminer
+docker build -t postgres .
+docker network create my-network
+docker run -d --name postgres --network my-network -p 5432:5432 -e POSTGRES_PASSWORD=pwd -e POSTGRES_USER=usr -e POSTGRES_DB=db postgres
+docker logs postgres
+docker exec -it postgres psql -U usr -d db
 ```
 
-### Questions 
+The Dockerfile is documented above. The SQL files create the `departments` and `students` tables and insert initial data.
 
-1. **1-1 For which reason is it better to run the container with a flag -e to give the environment variables rather than put them directly in the Dockerfile?**
+## Backend - Basic Java
 
-Passwords and private keys are secrets and should no be available to the public. If they are mentioned in the image defination, thoes passwords and private keys will be avaialble to the public. 
+The first backend step is in:
 
-When used wihth -e these varibles are only passed once in the admins terminal. They are not inculded in the image defination and not available to the public 
-
-2. **1-2 Why do we need a volume to be attached to our postgres container?**
-
-in a PostSQL container storage is not temporary. When the container is deleted, changed or update the data might be lost. This data is valuble to all parities envolved. 
-
-A docker volume is permanent storage stored locally or on a server running the container. Volume is not effected by container shut downs, updated or duplication. 
-
-3. **1-3 Document your database container essentials: commands and Dockerfile.**
-
-For the database this readme contains all comands and information about the container
-
-## Backend 
-
-### Basic Java
-
-This is just a basic java program that we are running through a docker container. 
-
-The `Dockerfile` installs JDK 21.0, complies the file and then runs the file. 
-
-### Terminal Comands 
-
-1. Building docker image
 ```
-docker build -t basic_java
+TP-1/Backend/basic_java_build
 ```
 
-2. Running the container 
+It contains a simple `Main.java` and a Dockerfile. The Docker image compiles the Java file and runs the class.
+
+Commands:
+
 ```
+docker build -t basic_java .
 docker run basic_java
 ```
 
-## Simple/Backend API
+The expected output is:
 
-For this part we connect the database to API. 
+```
+Hello World!
+```
 
-Here we connect container named `postgres` at the port `5432` with database `db` to a springboot application named `springboot` hosted on port `8080:8080`. 
+## Backend - Springboot API
 
-Initial files were generated by (Spring Initializer)[https://start.spring.io/#!type=maven-project&language=java&platformVersion=3.4.5&packaging=jar&jvmVersion=21&groupId=fr.takima.training&artifactId=simpleapi&name=simpleapi&description=Demo%20project%20for%20Spring%20Boot&packageName=fr.takima.training.simpleapi&dependencies=web]
- 
- But the `src` folder and `pom.xml` files were replaced by this (GitHub Repositry)[https://github.com/takima-training/simple-api-student]
+Then I created the Springboot backend in:
 
- `application.properties` file was rewritten to `application.yml` with the code below
+```
+TP-1/Backend/Springboot
+```
 
- ```
+The application exposes departments and students endpoints and connects to Postgres using environment variables.
+
+Main useful endpoints:
+
+```
+/
+/students
+/students/{id}
+/departments
+/departments/{departmentName}
+/departments/{departmentName}/students
+/departments/{departmentName}/count
+```
+
+The database configuration is in `application.yml`:
+
+```
 spring:
-  jpa:
-    properties:
-      hibernate:
-        jdbc:
-          lob:
-            non_contextual_creation: true
-    generate-ddl: false
-    open-in-view: true
-
   datasource:
     url: jdbc:postgresql://${DB_HOST:postgres}:5432/${DB_NAME:db}
     username: ${DB_USER:usr}
     password: ${DB_PASSWORD:pwd}
-    driver-class-name: org.postgresql.Driver
-
-management:
-  server:
-    add-application-context-header: false
-  endpoints:
-    web:
-      exposure:
-        include: health,info,env,metrics,beans,configprops
 ```
 
-### Terminal Compands
-
-1. Building Springboot image
+Commands:
 
 ```
-docker build -t springboot .  
-```
-
-2. Running the container 
-
-```
-docker run --name springboot \                                     
+docker build -t springboot .
+docker run --name springboot \
   --network my-network \
   -p 8080:8080 \
   -e DB_HOST=postgres \
@@ -134,403 +253,322 @@ docker run --name springboot \
   springboot
 ```
 
-### Trouble Shooting 
+### 1-4 Why do we need a multistage build? And explain each step of this Dockerfile.
 
-1. Check if the Postgres Server and the springboot app is on the same network
-1. Check application.yml file if the server paths,user name and passwords are written correctly 
-1. Docker file path (it should be outside src)
+We need a multistage build because the application needs Maven and a JDK to build, but it does not need all of that to run.
 
+In the first stage I use `eclipse-temurin:21-jdk-alpine`. This stage installs Maven, copies `pom.xml` and `src`, then runs Maven to create the jar.
 
-### Questions 
+In the second stage I use `eclipse-temurin:21-jre-alpine`. This image is smaller because it only contains the runtime. I copy only the jar from the build stage and start it with:
 
-1. **1.4 Why do we need a multistage build? And explain each step of this dockerfile.**
+```
+java -jar myapp.jar
+```
 
-We need multistage build to reduce the total size of the final build and make the container more efficient. There are 2 stages for the build. 
+This makes the final image smaller, cleaner and faster to deploy.
 
-1. Compiling and building the code (requires heavy and full programs like JDK, Source code and Mavern )
-2. Running the actual programs ( much faster and requires almost no overheadx)
+## HTTP server and reverse proxy
 
-On multistage building only the last and final state is selected (here running), and all the overhead which is not required for running is not stored in the last stage. This makes the build and container much faster, efficent and take less space. 
+The reverse proxy is in:
 
-## httpd
+```
+TP-1/httpd
+```
 
-In this part, I set up a apache reverse proxy to access springboot application. 
+I used `httpd:2.4` and replaced the Apache configuration with my `httpd.conf`.
 
-
-### Terminal Comands
-
-1. Get httpd.conf
+Commands used:
 
 ```
 docker run --rm httpd:2.4 cat /usr/local/apache2/conf/httpd.conf > httpd.conf
+docker build -t apache-reverse-proxy .
+docker run --rm -p 80:80 -e BACKEND_HOST=host.docker.internal apache-reverse-proxy
 ```
 
-2. add this code to the end of the httpd.conf file 
+### 1-5 Why do we need a reverse proxy?
 
-'''
-<VirtualHost *:80>
-    ProxyPreserveHost On
-    ProxyPass / http://${BACKEND_HOST}:8080/
-    ProxyPassReverse / http://${BACKEND_HOST}:8080/
-</VirtualHost>
-'''
+A reverse proxy gives one public entry point to the application. The client does not need to know the backend container or database container.
 
-3. Build and run docker 
+It is useful because it hides internal services, keeps backend ports closed from the host, makes routing cleaner, and can also be used later for SSL, front-end routing and load balancing.
+
+## Docker compose
+
+The compose file is:
 
 ```
-docker build -t apache-reverse-proxy .   
+TP-1/docker-compose.yml
 ```
 
-```
-docker run --rm -p 80:80 \                                    
-  -e BACKEND_HOST=host.docker.internal \
-  apache-reverse-proxy
-  ```
+It starts the database, two backend instances, the frontend and the httpd proxy.
 
-  ### Questions
-
-  1. **Q 1.5 1-5 Why do we need a reverse proxy?**
-
-    Reverse proxy is useful as it provides only one entrance to the application and all other ports that might have secure information are hidden. Backend and frontend can be securly seperated
-
-## Docker Compose 
-
-**1-6 Why is docker-compose so important?**
-
-Docker Compose is important because it lets us manage several containers together using one configuration file. Instead of running long docker run commands manually, we can describe the services, ports, volumes, networks, and environment variables in a docker-compose.yml file.
-
-It is especially useful for projects with multiple parts, such as a backend, frontend, and database. With one command, we can start the whole application, stop it, rebuild it, and keep the configuration easy to read and share.
-
-**1-7 Docker Compose most important commands**
+Command:
 
 ```
-docker compose up starts the services defined in the compose file.
-
-docker compose up -d starts the services in the background.
-
-docker compose down stops and removes the containers, networks, and default resources created by Compose.
-
-docker compose build builds or rebuilds the images.
-
-docker compose ps shows the running services.
-
-docker compose logs shows the logs of the services.
-
-docker compose logs -f follows the logs in real time.
-
-docker compose restart restarts the services.
-
-docker compose exec <service> <command> runs a command inside a running service container.
-
+docker compose up --build
 ```
 
-**1-8 docker-compose file**
+### 1-6 Why is docker-compose so important?
+
+Docker compose is important because this application has several containers. Running them one by one with long `docker run` commands is not clean and is easy to break.
+
+With compose I can describe the services, networks, environment variables, healthcheck and dependencies in one file. After that one command can start the full application.
+
+### 1-7 Document docker-compose most important commands.
 
 ```
-services:
-  database:
-    build: ./Database
-    container_name: postgres        
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U usr -d db"]
-      interval: 5s                 
-      retries: 10                  
-
-  backend:
-    build: ./Backend/Springboot
-    depends_on:
-      database:
-        condition: service_healthy  
-
-  httpd:
-    build: ./httpd
-    ports:
-      - "80:80"                     
-    environment:
-      BACKEND_HOST: backend         
+docker compose up
+```
+Starts the services.
 
 ```
-
-## Publish
-
-**1-9 Document your publication commands and published images in dockerhub.**
-
-1. Finding Images 
+docker compose up -d
+```
+Starts the services in the background.
 
 ```
-docker images  
+docker compose up --build
+```
+Rebuilds images and starts the services.
+
+```
+docker compose down
+```
+Stops and removes compose containers and networks.
+
+```
+docker compose ps
+```
+Shows the running services.
+
+```
+docker compose logs
+```
+Shows logs.
+
+```
+docker compose logs -f
+```
+Follows logs in real time.
+
+```
+docker compose exec <service> <command>
+```
+Runs a command inside a running container.
+
+### 1-8 Document your docker-compose file.
+
+My compose file contains these services:
+
+```
+database
+backend-blue
+backend-green
+frontend
+httpd
 ```
 
-2. Tagging them 
+The database uses the `.env` file and has a healthcheck with `pg_isready`.
+
+The two backend containers use the same Springboot image but run as two different services. They both connect to the same database.
+
+The frontend is built from `TP-1/frontend` and served with Nginx.
+
+The `httpd` service exposes only port `80:80` to the host. Backend and database ports are not exposed to the host in the final compose file. This is cleaner because users access the application through the proxy.
+
+## Publish images
+
+### 1-9 Document your publication commands and published images in dockerhub.
+
+Commands used:
 
 ```
+docker login
+docker images
+
 docker tag tp-1-database:latest jatinkhiyani/my-database:1.0
 docker tag tp-1-backend:latest jatinkhiyani/my-backend:1.0
 docker tag tp-1-httpd:latest jatinkhiyani/my-httpd:1.0
-```
-3. Pushing them 
 
-```
-docker push jatinkhiyani/my-database:1.0                    
-docker push jatinkhiyani/my-backend:1.0                   
-docker push jatinkhiyani/my-httpd:1.0                 
+docker push jatinkhiyani/my-database:1.0
+docker push jatinkhiyani/my-backend:1.0
+docker push jatinkhiyani/my-httpd:1.0
 ```
 
-Published images 
+Images also used later in GitHub Actions and Ansible:
 
 ```
-jatinkhiyani/my-database:1.0
-
-jatinkhiyani/my-backend:1.0
-
-jatinkhiyani/my-httpd:1.0
+jatinkhiyani/tp-devops-database:latest
+jatinkhiyani/tp-devops-simple-api:latest
+jatinkhiyani/tp-devops-httpd:latest
+jatinkhiyani/frontend:latest
 ```
 
-**1.10 Why do we put our images online**
+### 1-10 Why do we put our images into an online repo?
 
-We put Docker images into an online repository such as Docker Hub so they can be shared and reused easily.
+We put Docker images in an online repository because another machine can pull the same image without rebuilding it locally.
 
-Instead of rebuilding the image on every machine, another developer or server can directly pull the same image from the repository. This makes deployment easier and ensures everyone uses the same version of the application.
+This is useful for team work, CI/CD and production deployment. The server can pull a version from DockerHub and run it. It also makes rollback easier because images can be tagged with versions.
 
-It is also useful for teamwork, continuous integration, and production deployment because images are stored with version tags like 1.0, making them easier to track, update, and roll back if needed.
+# Lab 2 - GitHub Actions
 
-# ALL QUESTIONS
+## CI pipeline
 
-1. **1-1 For which reason is it better to run the container with a flag -e to give the environment variables rather than put them directly in the Dockerfile?**
-
-Passwords and private keys are secrets and should no be available to the public. If they are mentioned in the image defination, thoes passwords and private keys will be avaialble to the public. 
-
-When used wihth -e these varibles are only passed once in the admins terminal. They are not inculded in the image defination and not available to the public 
-
-2. **1-2 Why do we need a volume to be attached to our postgres container?**
-
-in a PostSQL container storage is not temporary. When the container is deleted, changed or update the data might be lost. This data is valuble to all parities envolved. 
-
-A docker volume is permanent storage stored locally or on a server running the container. Volume is not effected by container shut downs, updated or duplication. 
-
-3. **1-3 Document your database container essentials: commands and Dockerfile.**
-
-For the database this readme contains all comands and information about the container
-
-4. **1.4 Why do we need a multistage build? And explain each step of this dockerfile.**
-
-We need multistage build to reduce the total size of the final build and make the container more efficient. There are 2 stages for the build. 
-
-1. Compiling and building the code (requires heavy and full programs like JDK, Source code and Mavern )
-2. Running the actual programs ( much faster and requires almost no overheadx)
-
-On multistage building only the last and final state is selected (here running), and all the overhead which is not required for running is not stored in the last stage. This makes the build and container much faster, efficent and take less space. 
-
-
-5. **Q 1.5 1-5 Why do we need a reverse proxy?**
-
-  Reverse proxy is useful as it provides only one entrance to the application and all other ports that might have secure information are hidden. Backend and frontend can be securly seperated
-
-6. **1-6 Why is docker-compose so important?**
-
-Docker Compose is important because it lets us manage several containers together using one configuration file. Instead of running long docker run commands manually, we can describe the services, ports, volumes, networks, and environment variables in a docker-compose.yml file.
-
-It is especially useful for projects with multiple parts, such as a backend, frontend, and database. With one command, we can start the whole application, stop it, rebuild it, and keep the configuration easy to read and share.
-
-7. **1-7 Docker Compose most important commands**
+The CI workflow is:
 
 ```
-docker compose up starts the services defined in the compose file.
-
-docker compose up -d starts the services in the background.
-
-docker compose down stops and removes the containers, networks, and default resources created by Compose.
-
-docker compose build builds or rebuilds the images.
-
-docker compose ps shows the running services.
-
-docker compose logs shows the logs of the services.
-
-docker compose logs -f follows the logs in real time.
-
-docker compose restart restarts the services.
-
-docker compose exec <service> <command> runs a command inside a running service container.
-
+.github/workflows/main.yml
 ```
 
-8. **1-8 docker-compose file**
+It runs on push to `main` and `develop`, and also on pull requests.
+
+The first job is `test-backend`. It checks out the code, installs Java 21 and runs:
 
 ```
-services:
-  database:
-    build: ./Database
-    container_name: postgres        
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U usr -d db"]
-      interval: 5s                 
-      retries: 10                  
-
-  backend:
-    build: ./Backend/Springboot
-    depends_on:
-      database:
-        condition: service_healthy  
-
-  httpd:
-    build: ./httpd
-    ports:
-      - "80:80"                     
-    environment:
-      BACKEND_HOST: backend         
-      
+mvn clean verify
 ```
 
-9. **1-9 Document your publication commands and published images in dockerhub.**
-
-1. Finding Images 
+from:
 
 ```
-docker images  
+TP-1/Backend/Springboot
 ```
 
-2. Tagging them 
+### 2-1 What are testcontainers?
+
+Testcontainers are Java libraries used during tests to start real Docker containers for dependencies.
+
+In this project the backend tests can start a PostgreSQL container for integration tests. This is better than testing with a fake database because the tests are closer to the real application behavior.
+
+The dependencies are in the Springboot `pom.xml`:
 
 ```
-docker tag tp-1-database:latest jatinkhiyani/my-database:1.0
-docker tag tp-1-backend:latest jatinkhiyani/my-backend:1.0
-docker tag tp-1-httpd:latest jatinkhiyani/my-httpd:1.0
-```
-3. Pushing them 
-
-```
-docker push jatinkhiyani/my-database:1.0                    
-docker push jatinkhiyani/my-backend:1.0                   
-docker push jatinkhiyani/my-httpd:1.0                 
+testcontainers
+jdbc
+postgresql
 ```
 
-Published images 
+## Secured variables
+
+### 2-2 For what purpose do we need to use secured variables?
+
+Secured variables are used to store private values like DockerHub token, DockerHub username, Sonar token, SSH private key and database passwords.
+
+They should not be written directly in the repository because the repository can be public and the values would be exposed. GitHub Secrets lets the workflow use the values without printing them in the code.
+
+## Docker build and push workflow
+
+The Docker build workflow is:
 
 ```
-jatinkhiyani/my-database:1.0
-
-jatinkhiyani/my-backend:1.0
-
-jatinkhiyani/my-httpd:1.0
+.github/workflows/build-and-push.yml
 ```
 
-10. **1.10 Why do we put our images online**
+It runs after the CI workflow has completed successfully on `main`.
 
-We put Docker images into an online repository such as Docker Hub so they can be shared and reused easily.
-
-Instead of rebuilding the image on every machine, another developer or server can directly pull the same image from the repository. This makes deployment easier and ensures everyone uses the same version of the application.
-
-It is also useful for teamwork, continuous integration, and production deployment because images are stored with version tags like 1.0, making them easier to track, update, and roll back if needed.
-
-
-# Lab 3
-
-1. **3-1 Document your inventory and base commands**
-
-First I make a file at `my-project/ansible/inventories/setup.yml` and open it 
-
-Terminal Comand
+It builds and pushes:
 
 ```
-mkdir -p my-project/ansible/inventories
-cd my-project/ansible
-nano inventories/setup.yml
+TP-1/database
+TP-1/Backend/Springboot
+TP-1/httpd
+TP-1/frontend
 ```
 
-`setup.yml` file
+### 2-3 Why did we put needs: build-and-test-backend on this job?
+
+We use `needs` so the Docker image is built only after the backend tests are successful.
+
+Without this dependency, GitHub Actions could build and push an image even if the tests are failing. That is not good because DockerHub could receive a broken version of the application.
+
+In the split pipeline version I used `workflow_run` instead of `needs` because the Docker build is in another workflow. The idea is the same: publish only after the CI is green.
+
+### 2-4 For what purpose do we need to push docker images?
+
+We push Docker images so that the server can pull and run them during deployment.
+
+The image built on GitHub Actions becomes the same image used by Ansible on the remote server. This avoids rebuilding on the server and gives a clear separation between build and deployment.
+
+## Quality Gate
+
+The SonarCloud job is also in:
+
+```
+.github/workflows/main.yml
+```
+
+It runs after `test-backend` and executes:
+
+```
+mvn -B verify sonar:sonar
+```
+
+The Sonar values are stored in GitHub Secrets:
+
+```
+PROJECT_KEY
+ORGANIZATION_KEY
+SONAR_TOKEN
+```
+
+The goal is to check code quality, maintainability and security problems before accepting the code.
+
+## Split pipelines
+
+I split the pipelines like this:
+
+```
+.github/workflows/main.yml              # test backend and Sonar
+.github/workflows/build-and-push.yml    # build and push Docker images after CI success
+.github/workflows/deploy.yml            # deploy with Ansible
+```
+
+This makes the workflows easier to read and avoids mixing testing, build and deployment in one file.
+
+# Lab 3 - Ansible
+
+## Inventory and base commands
+
+The Ansible inventory is:
+
+```
+my-project/ansible/inventories/setup.yml
+```
+
+Content:
 
 ```
 all:
   vars:
     ansible_user: admin
-    ansible_ssh_private_key_file: /Users/harshakhiyani/My_Stuff/Study/Newkey/id_rsa
+    ansible_python_interpreter: /opt/docker_venv/bin/python
   children:
     prod:
       hosts:
         jatin.khiyani.takima.school:
 ```
 
-Then excute the comands mentioned in the tutorial 
+### 3-1 Document your inventory and base commands
+
+Commands used:
 
 ```
+cd my-project/ansible
 ansible all -i inventories/setup.yml -m ping
 ansible all -i inventories/setup.yml -m setup -a "filter=ansible_distribution*"
 ansible all -i inventories/setup.yml -m apt -a "name=apache2 state=absent" --become
-
 ```
 
-1. **3-2 Document your playbook**
+The inventory defines the remote production host and the user `admin`. I also set `ansible_python_interpreter` to use the Python virtual environment where the Docker SDK is installed.
 
-My `playbook` file contents
+## Playbook and roles
+
+The main playbook is:
 
 ```
-- hosts: all
-  gather_facts: true
-  become: true
-
-  tasks:
-    - name: Install required packages
-      apt:
-        name:
-          - ca-certificates
-          - curl
-          - gnupg
-          - lsb-release
-          - python3
-          - python3-pip
-          - python3-venv
-        state: present
-        update_cache: yes
-
-    - name: Create Docker keyrings directory
-      file:
-        path: /etc/apt/keyrings
-        state: directory
-        mode: "0755"
-
-    - name: Add Docker GPG key
-      get_url:
-        url: https://download.docker.com/linux/debian/gpg
-        dest: /etc/apt/keyrings/docker.asc
-        mode: "0644"
-
-    - name: Add Docker APT repository
-      apt_repository:
-        repo: "deb [arch={{ ansible_architecture | replace('x86_64', 'amd64') }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_facts['distribution_release'] }} stable"
-        state: present
-        filename: docker
-        update_cache: yes
-
-    - name: Install Docker packages
-      apt:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - docker-buildx-plugin
-          - docker-compose-plugin
-        state: present
-        update_cache: yes
-
-    - name: Create virtual environment for Docker SDK
-      command: python3 -m venv /opt/docker_venv
-      args:
-        creates: /opt/docker_venv
-
-    - name: Install Docker SDK for Python in virtual environment
-      command: /opt/docker_venv/bin/pip install docker
-
-    - name: Make sure Docker is running
-      service:
-        name: docker
-        state: started
-        enabled: true
+my-project/ansible/playbook.yml
 ```
 
-3. **3-3 Document your docker_container tasks configuration.**
-
-Here I have made these tasks in the file `playbook.yml`
+Content:
 
 ```
 - hosts: all
@@ -542,23 +580,187 @@ Here I have made these tasks in the file `playbook.yml`
     - network
     - database
     - app
+    - frontend
     - proxy
-   ```
-   These files are present in 
+```
+
+### 3-2 Document your playbook
+
+The playbook runs all roles in order.
+
+`docker` installs Docker and the Python Docker SDK.
+
+`network` creates the Docker network used by all containers.
+
+`database` starts the Postgres container.
+
+`app` starts the Springboot API container.
+
+`frontend` starts the Vue/Nginx front-end container.
+
+`proxy` starts the httpd container and exposes port 80.
+
+To run the playbook:
 
 ```
-   my-project/ansible/roles/
-├── docker/          
-├── network/
-│   └── tasks/
-│       └── main.yml  
-├── database/
-│   └── tasks/
-│       └── main.yml  
-├── app/
-│   └── tasks/
-│       └── main.yml  
-└── proxy/
-    └── tasks/
-        └── main.yml  
+cd my-project/ansible
+ansible-playbook -i inventories/setup.yml playbook.yml
 ```
+
+To check syntax:
+
+```
+ansible-playbook -i inventories/setup.yml playbook.yml --syntax-check
+```
+
+### 3-3 Document your docker_container tasks configuration.
+
+The containers are launched with `community.docker.docker_container`.
+
+Database role:
+
+```
+name: database
+image: "{{ DOCKERHUB_USERNAME }}/tp-devops-database:latest"
+restart_policy: unless-stopped
+network: my-network
+```
+
+Backend role:
+
+```
+name: backend
+image: "{{ DOCKERHUB_USERNAME }}/tp-devops-simple-api:latest"
+restart_policy: unless-stopped
+network: my-network
+env:
+  DB_HOST: "{{ DB_HOST }}"
+  DB_NAME: "{{ POSTGRES_DB }}"
+  DB_USER: "{{ POSTGRES_USER }}"
+  DB_PASSWORD: "{{ POSTGRES_PASSWORD }}"
+```
+
+Frontend role:
+
+```
+name: frontend
+image: "{{ DOCKERHUB_USERNAME }}/frontend:latest"
+restart_policy: unless-stopped
+network: my-network
+```
+
+Proxy role:
+
+```
+name: httpd
+image: "{{ DOCKERHUB_USERNAME }}/tp-devops-httpd:latest"
+ports:
+  - "80:80"
+env:
+  BACKEND_HOST: "{{ BACKEND_HOST }}"
+  FRONTEND_HOST: "{{ FRONTEND_HOST }}"
+```
+
+## Continuous deployment
+
+The deployment workflow is:
+
+```
+.github/workflows/deploy.yml
+```
+
+It installs Ansible in GitHub Actions, writes the SSH private key from GitHub Secrets into `private_key.pem`, and runs the Ansible playbook.
+
+The deployment uses these secured values:
+
+```
+SSH_PRIVATE_KEY
+DOCKERHUB_USERNAME
+POSTGRES_DB
+POSTGRES_USER
+POSTGRES_PASSWORD
+DB_HOST
+BACKEND_HOST
+FRONTEND_HOST
+```
+
+### Is it really safe to deploy automatically every new image on the hub? explain. What can I do to make it more secure?
+
+It is not always safe to automatically deploy every new image from DockerHub. If a bad image is pushed by mistake, or if the image is compromised, the server could deploy it directly.
+
+To make it more secure I can deploy only after tests and Sonar are green, use GitHub environments with manual approval, use version tags instead of only `latest`, protect the `main` branch, use Docker image scanning, and keep all deployment secrets in GitHub Secrets.
+
+In this repository the deploy workflow is separated in `deploy.yml`. This makes it easier to control when deployment happens.
+
+# Front-end
+
+The front-end is in:
+
+```
+TP-1/frontend
+```
+
+It is a Vue application. For production it uses:
+
+```
+VUE_APP_API_URL=/api
+```
+
+This means the browser calls `/api`, and Apache forwards `/api/` to the backend load balancer.
+
+The front-end Dockerfile builds the Vue app with Node and then serves the built files with Nginx.
+
+Commands:
+
+```
+cd TP-1/frontend
+yarn install
+yarn serve
+yarn build
+```
+
+Docker command:
+
+```
+docker build -t frontend .
+```
+
+# TP Extra - Load balancing
+
+For the extra part I added load balancing with two backend services in `docker-compose.yml`:
+
+```
+backend-blue
+backend-green
+```
+
+The Apache configuration in `TP-1/httpd/httpd.conf` uses a balancer:
+
+```
+<Proxy "balancer://backend-cluster">
+    BalancerMember http://backend-blue:8080  route=blue
+    BalancerMember http://backend-green:8080 route=green
+    ProxySet lbmethod=byrequests
+</Proxy>
+
+ProxyPass /api/ balancer://backend-cluster/
+ProxyPassReverse /api/ balancer://backend-cluster/
+```
+
+## Why can we easily load balance between our backends?
+
+We can load balance easily because the backend API is stateless. The request does not depend on memory stored in one specific backend container.
+
+If one request goes to `backend-blue` and the next request goes to `backend-green`, the application still works because the shared state is in the database.
+
+If the application used sticky sessions or stored user sessions in memory, load balancing would be more complicated because a user would need to keep going to the same backend.
+
+## Checkpoint: do you loadbalance?
+
+Yes, locally the compose file starts two backend containers and Apache distributes `/api/` requests between them using `mod_proxy_balancer`.
+
+As the server crashed I was not able to run it on the web however it is working in local host here is a screen shot. 
+
+
+![Load Balancing ](Load_Balancing.png
+)
