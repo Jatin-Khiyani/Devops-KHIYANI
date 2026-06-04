@@ -1,11 +1,9 @@
-
-
 services:
 
   database:
     build: ./database
     container_name: postgres
-    env_file: .env                        
+    env_file: .env
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -17,25 +15,23 @@ services:
       database:
         condition: service_healthy
     environment:
-      DB_HOST: ${DB_HOST}                  
+      DB_HOST: ${DB_HOST}
       DB_NAME: ${POSTGRES_DB}
       DB_USER: ${POSTGRES_USER}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
 
-
   frontend:
     build: ./frontend
     depends_on:
-     - backend
+      - backend
 
   httpd:
     build: ./httpd
     ports:
       - "80:80"
     environment:
+      BACKEND_HOST: backend
       FRONTEND_HOST: frontend
     depends_on:
       - frontend
-      - backend       
-
-      
+      - backend
